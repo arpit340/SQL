@@ -1,0 +1,342 @@
+USE [cage_inventory]
+GO
+
+IF NOT EXISTS 
+(
+	SELECT * FROM   sys.columns WHERE  object_id = OBJECT_ID(N'[dbo].[SHIFT_ACCOUNTABILITY_DETAIL]') AND name = 'TABLE_TIP_TAKE_HOME_AMOUNT'
+)
+BEGIN
+	ALTER TABLE dbo.[SHIFT_ACCOUNTABILITY_DETAIL]
+	ADD TABLE_TIP_TAKE_HOME_AMOUNT money;
+	print 'SHIFT_ACCOUNTABILITY_DETAIL Table Altered'
+END
+GO
+
+IF NOT EXISTS 
+(
+	SELECT * FROM   sys.columns WHERE  object_id = OBJECT_ID(N'[dbo].[RECEIPT_VOUCHER_DETAIL]') AND name = 'TABLE_TIP_TAKE_HOME_AMOUNT'
+)
+BEGIN
+	ALTER TABLE dbo.RECEIPT_VOUCHER_DETAIL
+	ADD TABLE_TIP_TAKE_HOME_AMOUNT money;
+	print 'RECEIPT_VOUCHER_DETAIL Table Altered'
+END
+GO
+
+
+
+/****** Object:  StoredProcedure [dbo].[p_rpt_GetReceiptVoucher]    Script Date: 11/1/2019 1:14:02 AM ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[p_rpt_GetReceiptVoucher]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[p_rpt_GetReceiptVoucher]
+GO
+/****** Object:  StoredProcedure [dbo].[p_InsertShiftAccountabilityDetail]    Script Date: 11/1/2019 1:14:02 AM ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[p_InsertShiftAccountabilityDetail]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[p_InsertShiftAccountabilityDetail]
+GO
+/****** Object:  StoredProcedure [dbo].[p_InsertReceiptVoucher]    Script Date: 11/1/2019 1:14:02 AM ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[p_InsertReceiptVoucher]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [dbo].[p_InsertReceiptVoucher]
+GO
+/****** Object:  StoredProcedure [dbo].[p_InsertReceiptVoucher]    Script Date: 11/1/2019 1:14:02 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[p_InsertReceiptVoucher]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+-- =============================================
+-- Author:		NEWGEN
+-- Create date: 10/12/2011
+-- Description:	INSERTS RECEIPT VOUCHER DETAILS
+-- =============================================
+CREATE PROCEDURE [dbo].[p_InsertReceiptVoucher] 
+	-- Add the parameters for the stored procedure here
+	@RECEIPT_SHIFTACCOUNTABILITY_DETAIL_ID INT
+	,@RECEIPT_SOURCE_ID INT
+	,@RECEIVED_BY_TM_NUM INT
+	,@TM_NUM INT  = null
+	,@RECEIVED_FROM_TM_LAST_NAME VARCHAR(50)=null
+	,@RECEIVED_FROM_TM_FIRST_NAME VARCHAR(50)=null
+	,@RECEIPT_LOC_ID INT
+	,@AMOUNT MONEY
+	,@COMMENTS VARCHAR(300)=null	
+	,@VOUCHER_NUM VARCHAR(30)= null	
+	,@TABLE_TIP_OUT_AMOUNT MONEY=null
+    ,@TABLE_TIP_TOTAL_AMOUNT  MONEY=null
+	,@TABLE_TIP_TAKE_HOME  MONEY=null
+	,@Result INT OUTPUT
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+	BEGIN TRY
+		BEGIN TRAN
+
+    -- Insert statements for procedure here
+    INSERT INTO RECEIPT_VOUCHER_DETAIL
+    (
+	 RECEIPT_SHIFTACCOUNTABILITY_DETAIL_ID
+    ,RECEIPT_SOURCE_ID
+    ,RECEIVED_BY_TM_NUM
+    ,TM_NUM
+    ,RECEIVED_FROM_TM_LAST_NAME
+    ,RECEIVED_FROM_TM_FIRST_NAME
+    ,RECEIPT_DT
+    ,RECEIPT_LOC_ID
+    ,AMOUNT
+    ,COMMENTS
+    ,VOUCHER_NUM
+	,TABLE_TIP_OUT_AMOUNT
+	,TABLE_TIP_TOTAL_AMOUNT
+	,TABLE_TIP_TAKE_HOME_AMOUNT
+    )
+    values
+    (
+    @RECEIPT_SHIFTACCOUNTABILITY_DETAIL_ID,
+    @RECEIPT_SOURCE_ID,
+    @RECEIVED_BY_TM_NUM,
+    @TM_NUM,
+    @RECEIVED_FROM_TM_LAST_NAME,
+    @RECEIVED_FROM_TM_FIRST_NAME,
+    GETDATE(),
+    @RECEIPT_LOC_ID,
+    @AMOUNT,
+    @COMMENTS,
+    '''',
+	@TABLE_TIP_OUT_AMOUNT,
+	@TABLE_TIP_TOTAL_AMOUNT,
+	@TABLE_TIP_TAKE_HOME
+	)
+    
+    DECLARE @RECEIPT_VOUCHER_DETAIL_ID INT = -1
+    SELECT @RECEIPT_VOUCHER_DETAIL_ID = SCOPE_IDENTITY()
+    
+    IF(@VOUCHER_NUM IS NULL)
+    BEGIN
+		SET @VOUCHER_NUM = ''CRV'' + CAST(@RECEIPT_VOUCHER_DETAIL_ID as CHAR(27))
+		
+		UPDATE RECEIPT_VOUCHER_DETAIL 
+		SET VOUCHER_NUM =  @VOUCHER_NUM
+		WHERE RECEIPT_VOUCHER_DETAIL_ID = @RECEIPT_VOUCHER_DETAIL_ID
+    END
+    ELSE
+    BEGIN
+		UPDATE RECEIPT_VOUCHER_DETAIL 
+		SET VOUCHER_NUM =  @VOUCHER_NUM
+		WHERE RECEIPT_VOUCHER_DETAIL_ID = @RECEIPT_VOUCHER_DETAIL_ID
+    END
+  
+	--SELECT <@Param1, sysname, @p1>, <@Param2, sysname, @p2>
+	SELECT @Result = @RECEIPT_VOUCHER_DETAIL_ID
+	COMMIT TRAN
+				
+	END TRY
+	
+	BEGIN CATCH
+			PRINT @@ERROR
+			/* Unsuccessful Insert. Error encountered during insert. Rollback transaction and return 0 (failure) */
+			ROLLBACK TRAN			
+			SET @Result = 0
+	END CATCH
+END
+
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[p_InsertShiftAccountabilityDetail]    Script Date: 11/1/2019 1:14:02 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[p_InsertShiftAccountabilityDetail]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+-- =============================================
+-- Author:		Laura Thronson
+-- Create date: 05/10/2007
+-- Description:	This Procedure adds accountability items to the 
+--				SHIFT_ACCOUNTABILITY_DETAIL table
+-- ----------------
+-- Revision History
+-- ----------------
+-- Date			Version	Author			Description
+-- --------		-------	------			-----------
+-- 05/10/2007	1.0		Laura Thronson	Initial version
+-- 01/01/2013	3.0.6	Newgen			Task 12559 - Marker Data Sheet Task : Added parameter @DocumentInitial to auto create
+--										document number.   
+--
+-- =============================================
+CREATE PROCEDURE [dbo].[p_InsertShiftAccountabilityDetail] 
+	-- Add the parameters for the stored procedure here
+			@CashierInventoryID INT
+			,@ShiftAccountabilityID INT
+			,@ShiftAccountabilityDetailDate DATETIME
+			,@ShiftAccountabilityDetailAmount FLOAT
+			,@DocumentRef CHAR(30) = NULL
+			,@DocumentInitial VARCHAR(10) = NULL
+			,@Table_Tip_Out_Amount Money =null
+			,@Table_Tip_Total_Amount Money =null
+			,@Table_Tip_Take_Home Money =null
+			--,@DisbursementId INT = NULL
+			--,@ReceiptSource_Id INT =NULL
+			,@Result INT OUTPUT		-- 0 for failure, SHIFT_ACCOUNTABILITY_DETAIL_ID for success
+	
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+
+	BEGIN TRAN
+
+		INSERT INTO [dbo].[SHIFT_ACCOUNTABILITY_DETAIL]
+			(
+				CASHIER_INVENTORY_ID
+				, SHIFT_ACCOUNTABILITY_ID
+				, SHIFT_ACCOUNTABILITY_DETAIL_DT
+				, SHIFT_ACCOUNTABILITY_DETAIL_AMT	
+				, DOCUMENT_REF
+				,TABLE_TIP_OUT_AMOUNT
+			    ,TABLE_TIP_TOTAL_AMOUNT
+				,TABLE_TIP_TAKE_HOME_AMOUNT
+				--, DISBURSEMENT_ID 
+				--, ReceiptSource_Id      
+			)
+		 VALUES
+			( 
+				@CashierInventoryID
+				,@ShiftAccountabilityID
+				,@ShiftAccountabilityDetailDate
+				,@ShiftAccountabilityDetailAmount
+				,@DocumentRef
+				,@Table_Tip_Out_Amount
+				,@Table_Tip_Total_Amount
+				,@Table_Tip_Take_Home
+				--,@DisbursementId
+				--,@ReceiptSource_Id
+			)
+
+		IF @@ERROR > 0
+		BEGIN
+			SELECT @Result = 0		-- Error in Inserting Data 
+			ROLLBACK TRAN			-- Rollback transaction
+			RETURN
+		END
+		
+		SELECT @Result = SCOPE_IDENTITY()				-- Return Success
+		
+		--01/01/2013 | 3.0.6 | Newgen | Task 12559 - Marker Data Sheet Task : Added parameter @DocumentInitial to auto create document number.   
+		IF @DocumentRef IS NULL AND NULLIF(LTRIM(RTRIM(@DocumentInitial)), '''') IS NOT NULL
+		BEGIN
+			UPDATE	[dbo].[SHIFT_ACCOUNTABILITY_DETAIL]
+			SET		[DOCUMENT_REF] = LTRIM(RTRIM(@DocumentInitial)) + CAST(@Result AS VARCHAR)
+			WHERE	[SHIFT_ACCOUNTABILITY_DETAIL_ID] = @Result
+		END
+		
+		IF @@ERROR > 0
+		BEGIN
+			SELECT @Result = 0		-- Error in Inserting Data 
+			ROLLBACK TRAN			-- Rollback transaction
+			RETURN
+		END
+		
+		COMMIT TRAN					-- Transaction successful commit 
+
+	
+
+END
+
+' 
+END
+GO
+/****** Object:  StoredProcedure [dbo].[p_rpt_GetReceiptVoucher]    Script Date: 11/1/2019 1:14:02 AM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[p_rpt_GetReceiptVoucher]') AND type in (N'P', N'PC'))
+BEGIN
+EXEC dbo.sp_executesql @statement = N'
+CREATE PROCEDURE [dbo].[p_rpt_GetReceiptVoucher]
+	@ShiftAccountabilityDetailId INT 
+AS
+/*********************************************************************************************************
+**										Viejas Enterprises												**
+**********************************************************************************************************
+**
+** Project		CAGE_INVENTORY
+** Database		CAGE_INVENTORY
+** Object		p_rpt_GetReceiptVoucher
+** Description	Used to get Receipt Voucher Report
+**				
+** ----------------
+** Revision History
+** ----------------
+** Date		Version	  Author    	 Description
+** --------	-------	 ----------	     -----------
+** 08/16/11	1.0		Vikas Udaseen 	Initial version
+** 05/08/12	2.3.4	Newgen			Removed * and added column names. 
+** 06/04/12	2.4.0	Newgen			Implemented logical delete : Added condition to fetch data Where IS_DELETED = 0 (False).
+** 06/04/12	2.4.0	Newgen			Implemented Task 3969 - Task #3630 : To get modified & original details for a disbursement voucher	.
+**
+*********************************************************************************************************/
+SET NOCOUNT ON
+	BEGIN
+			SELECT rvd.RECEIPT_VOUCHER_DETAIL_ID
+				,rvd.RECEIPT_SHIFTACCOUNTABILITY_DETAIL_ID
+				,rvd.RECEIPT_SOURCE_ID
+				,rvd.RECEIVED_BY_TM_NUM
+				,rvd.TM_NUM
+				,rvd.RECEIVED_FROM_TM_LAST_NAME
+				,rvd.RECEIVED_FROM_TM_FIRST_NAME
+				,rvd.RECEIPT_DT
+				,rvd.RECEIPT_LOC_ID
+				,rvd.AMOUNT
+				,rvd.TABLE_TIP_OUT_AMOUNT
+				,rvd.TABLE_TIP_TOTAL_AMOUNT
+				,rvd.TABLE_TIP_TAKE_HOME_AMOUNT
+				,rvd.COMMENTS
+				,rvd.VOUCHER_NUM
+				,rvd.GL_NUM_ID
+				,rvd.GL_NUM_TM
+				,rvd.ANC_REV_DT 
+				,rsf.RECEIPT_SOURCE_NM
+				,LTRIM(RTRIM(l.LOCATION_NM)) AS RECEIPT_LOCATION_NM
+				,(RTRIM(LTRIM(vt.[TEAM_MEMBER_FIRST_NM])) + '' '' + RTRIM(LTRIM(vt.[TEAM_MEMBER_LAST_NM]))) AS RECEIVED_BY_TM_NAME					
+				,rvdhistory.RECEIPT_VOUCHER_DETAIL_HISTORY_ID
+				,rvdhistory.RECEIPT_SOURCE_ID AS ORIGINAL_RECEIPT_SOURCE_ID
+				,rsfhistory.RECEIPT_SOURCE_NM AS ORIGINAL_RECEIPT_SOURCE_NM
+				,rvdhistory.COMMENTS AS ORIGINAL_COMMENTS
+				,rvdhistory.CORRECTION_TM_NUM
+				,(RTRIM(LTRIM(vtAnc.[TEAM_MEMBER_FIRST_NM])) + '' '' + RTRIM(LTRIM(vtAnc.[TEAM_MEMBER_LAST_NM]))) AS CORRECTION_TM_NAME					
+				,rvdhistory.CORRECTION_DT
+				, CASE WHEN dataSheet.IS_DATA_SHEET_EXISTS IS NULL THEN 0 ELSE dataSheet.IS_DATA_SHEET_EXISTS END AS IS_DATA_SHEET_EXISTS
+				
+			FROM [RECEIPT_VOUCHER_DETAIL] rvd
+				LEFT JOIN [RECEIPT_SOURCES_REF]  rsf ON rvd.RECEIPT_SOURCE_ID = rsf.RECEIPT_SOURCE_ID
+				LEFT JOIN LOCATION l ON rvd.RECEIPT_LOC_ID = l.LOCATION_ID
+				LEFT JOIN V_TEAM_MEMBER vt ON rvd.RECEIVED_BY_TM_NUM = vt.TEAM_MEMBER_NUM
+				OUTER APPLY (SELECT TOP 1 rvdhis.* FROM RECEIPT_VOUCHER_DETAIL_HISTORY rvdhis WHERE rvdhis.RECEIPT_VOUCHER_DETAIL_ID = rvd.RECEIPT_VOUCHER_DETAIL_ID )rvdhistory 
+				LEFT JOIN [RECEIPT_SOURCES_REF]  rsfhistory ON rvdhistory.RECEIPT_SOURCE_ID = rsfhistory.RECEIPT_SOURCE_ID
+				LEFT JOIN V_TEAM_MEMBER vtAnc ON rvdhistory.CORRECTION_TM_NUM = vtAnc.TEAM_MEMBER_NUM
+				OUTER APPLY	(	SELECT	1 AS IS_DATA_SHEET_EXISTS
+								WHERE EXISTS (	SELECT 1 
+												FROM	dbo.DATA_SHEET_DETAIL dsd								
+												JOIN	dbo.ANC_CATEGORY_SHIFTACCOUNTABILITY_ASSOC acsa	ON acsa.SHIFT_ACCOUNTABILITY_ID	= 34
+												JOIN	dbo.ANC_MANUAL_CATEGORY_REF amcr ON acsa.CATEGORY_ID = amcr.CATEGORY_ID
+														AND amcr.CATEGORY_STATUS_ID IN (''SA'',''SA_ME'')
+												WHERE	dsd.IS_DELETED = 0
+														AND dsd.SHIFT_ACCOUNTABILITY_DETAIL_ID = rvd.RECEIPT_SHIFTACCOUNTABILITY_DETAIL_ID	
+											)
+							)dataSheet
+			WHERE  rvd.RECEIPT_SHIFTACCOUNTABILITY_DETAIL_ID = @ShiftAccountabilityDetailId  
+				AND rvd.IS_DELETED = 0
+	END
+ 
+' 
+END
+GO
